@@ -1,22 +1,39 @@
 {
-  "name": "tracerun-client",
+  "name": "tracerun-cli",
   "version": "0.0.1",
-  "description": "TraceRun javascript client SDK.",
+  "description": "TraceRun javascript client.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
+  },
+  "jest": {
+    "scriptPreprocessor": "<rootDir>/node_modules/babel-jest",
+    "testFileExtensions": [
+      "es6",
+      "js"
+    ],
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "es6"
+    ]
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tracerun/client-js.git"
+    "url": "git+https://github.com/tracerun/tracerun-cli.git"
   },
   "author": "drkaka <drkaka@drkaka.com> (https://www.drkaka.com/)",
   "license": "Apache-2.0",
   "bugs": {
-    "url": "https://github.com/tracerun/client-js/issues"
+    "url": "https://github.com/tracerun/tracerun-cli/issues"
   },
-  "homepage": "https://github.com/tracerun/client-js#readme",
+  "homepage": "https://github.com/tracerun/tracerun-cli#readme",
   "dependencies": {
-    "winston": "^2.3.1"
+    
+  },
+  "devDependencies": {
+    "@types/node": "^7.0.14",
+    "jest": "^19.0.2",
+    "typescript": "^2.3.1"
   }
 }
