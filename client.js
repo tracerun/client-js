@@ -1,38 +1,30 @@
 import * as net from "net";
-import * as proto from "protobufjs";
 
-export default class Client {
-  private readonly port: number;
-  private readonly address: string;
-  private readonly errFunc: (err: Error) => void;
-  private sendConn: net.Socket;
+let errFunc;
 
-  constructor(port: number, addr: string, func: (err: Error) => void) {
+export function setErrFunc(func) {
+  errFunc = func;
+}
+
+export class Client {
+  constructor(port = 19869, addr = "127.0.0.1") {
     this.port = port;
     this.address = addr;
-    this.errFunc = func;
   }
 
-  private checkSendConn() {
+  checkSendConn() {
     if (this.sendConn === undefined) {
       this.sendConn = net.createConnection({ port: this.port, host: this.address });
-      this.sendConn.on("end", data => {
-        this.sendConn.end()
+      this.sendConn.on("end", () => {
+        this.sendConn.end();
         this.sendConn = undefined;
-      })
-      this.sendConn.on("error", err => {
-        this.errFunc(err)
-        this.sendConn = undefined;
-      })
-    }
-  }
+      });
 
-  private getExchConn(): net.Socket {
-    let conn = net.createConnection({ port: this.port, host: this.address });
-    conn.on("error", err => {
-      this.errFunc(err)
-    })
-    return conn
+      this.sendConn.on("error", err => {
+        errFunc(err);
+        this.sendConn = undefined;
+      });
+    }
   }
 
   ping() {
@@ -42,7 +34,7 @@ export default class Client {
     this.sendConn.write(buf);
   }
 
-  addAction(target: string) {
+  addAction(target) {
     this.checkSendConn();
 
     let length = Buffer.byteLength(target);
@@ -54,8 +46,8 @@ export default class Client {
     this.sendConn.write(total);
   }
 
-  getMeta(func: (meta: any) => void) {
-    let conn = this.getExchConn();
+  getMeta(metaCallback) {
+    let conn = getExchConn();
     let buf = getHeaderBuf(0, 2);
     conn.on("data", data => {
 
@@ -64,9 +56,17 @@ export default class Client {
   }
 }
 
-function getHeaderBuf(count: number, route: number): Buffer {
+function getExchConn(port, addr) {
+  let conn = net.createConnection({ port: port, host: addr });
+  conn.on("error", err => {
+    errFunc(err);
+  });
+  return conn;
+}
+
+function getHeaderBuf(count, route) {
   let buf = new Buffer(3);
   buf.writeUInt16LE(count, 0);
   buf.writeUInt8(route, 2);
-  return buf
+  return buf;
 }
