@@ -1,14 +1,32 @@
-import { client } from "../index";
-import assert from "assert";
+const client = require("../index").client;
 
-it('should have err when connect to a non-open port', (done) => {
-  client.setErrFunc(err => {
-    assert.equal("ECONNREFUSED", err.code);
-    done();
+describe('Client tests', function () {
+  it('should have err when connect to a non-open port', (done) => {
+    client.setErrFunc(err => {
+      console.log("with err code", err.code);
+      if (err.code === "ECONNREFUSED") {
+        done();
+      } else if (err.code === "EADDRNOTAVAIL") {
+        done();
+      } else {
+        done(err);
+      }
+    });
+
+    let errClient = new client.Client(1234, "127.0.0.1");
+    errClient.ping();
   });
 
-  let errClient = new client.Client(1234, "127.0.0.1");
-  errClient.ping();
+  it('should be able to get meta information', (done) => {
+    client.setErrFunc(err => {
+      done(err);
+    });
 
-  // this.timeout(5000);
+    let metaClient = new client.Client();
+    metaClient.getMeta(meta => {
+      console.log(meta);
+      done();
+    });
+  });
+
 });

@@ -1,12 +1,20 @@
-import * as net from "net";
+const net = require("net");
+const service = require('./proto/service_pb');
+
+
+// const root = new protobuf.Root();
+// Root.load('');
+// const Meta = Root.lookupType("service.Meta");
+
+// const Meta = require("./proto/service").Meta;
 
 let errFunc;
 
-export function setErrFunc(func) {
+exports.setErrFunc = function (func) {
   errFunc = func;
-}
+};
 
-export class Client {
+exports.Client = class {
   constructor(port = 19869, addr = "127.0.0.1") {
     this.port = port;
     this.address = addr;
@@ -34,6 +42,23 @@ export class Client {
     this.sendConn.write(buf);
   }
 
+  getMeta(metaCallback) {
+    let route = 2; // meta route
+
+    let conn = getExchConn(this.port, this.address);
+    let buf = getHeaderBuf(0, route);
+    conn.on("data", data => {
+      let msg = readOne(route, data);
+      if (msg.error !== undefined) {
+        errFunc(msg.error);
+      } else {
+        let meta = service.Meta.deserializeBinary(new Uint8Array(msg.buf));
+        metaCallback(meta.toObject());
+      }
+    });
+    conn.write(buf);
+  }
+
   addAction(target) {
     this.checkSendConn();
 
@@ -45,16 +70,7 @@ export class Client {
     total.write(target, 3);
     this.sendConn.write(total);
   }
-
-  getMeta(metaCallback) {
-    let conn = getExchConn();
-    let buf = getHeaderBuf(0, 2);
-    conn.on("data", data => {
-
-    });
-    conn.write(buf);
-  }
-}
+};
 
 function getExchConn(port, addr) {
   let conn = net.createConnection({ port: port, host: addr });
@@ -69,4 +85,24 @@ function getHeaderBuf(count, route) {
   buf.writeUInt16LE(count, 0);
   buf.writeUInt8(route, 2);
   return buf;
+}
+
+function readOne(expectRoute, buf) {
+  let count = buf.readInt16LE(0);
+  let route = buf.readUInt8(2);
+  let realBuf = buf.slice(3, 3 + count);
+
+  let err;
+  if (route === 255) {
+    err = new Error(realBuf.toString());
+  } else if (route !== expectRoute) {
+    err = new Error("route wrong");
+  }
+
+  return {
+    error: err,
+    count: count,
+    route: route,
+    buf: realBuf,
+  };
 }
