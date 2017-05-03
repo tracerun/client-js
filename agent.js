@@ -1,4 +1,46 @@
-exports.getLatestVersion = function (resp) {
+const client = require('./client');
+const path = require('path');
+const os = require('os');
+const fs = require('fs');
+const spawn = require('child_process').spawn;
+
+exports.start = function (resp) {
+  client.setErrFunc(() => {
+    // port not open
+    let program = "tracerun";
+    if (process.platform === "win32") {
+      program = "tracerun.exe";
+    }
+
+    let traceRunFolder = getTraceRunFolder();
+    let programPath = path.format({
+      dir: traceRunFolder,
+      base: program
+    });
+
+    if (fs.existsSync(programPath)) {
+      startDaemon(traceRunFolder, program);
+      resp(true);
+    } else {
+      // download the program
+      downloadTraceRun(traceRunFolder, err => {
+        if (err) {
+          console.error(err);
+        } else {
+          startDaemon(traceRunFolder, program);
+          resp(true);
+        }
+      });
+    }
+  });
+
+  let metaClient = new client.Client();
+  metaClient.getMeta(() => {
+    resp(true);
+  });
+};
+
+function getLatestVersion(resp) {
   let req = require('request');
 
   req.get("https://api.github.com/repos/tracerun/tracerun/releases/latest", {
@@ -16,7 +58,7 @@ exports.getLatestVersion = function (resp) {
   });
 };
 
-exports.downloadTraceRun = function (resp) {
+function downloadTraceRun(programFolder, resp) {
   let arch = process.arch;
   if (arch === "ia32") {
     arch = "386";
@@ -38,10 +80,11 @@ exports.downloadTraceRun = function (resp) {
     return;
   }
 
-  this.getLatestVersion((err, version) => {
+  getLatestVersion((err, version) => {
     if (err) {
       resp(err);
     } else {
+      // got version
       let baseLink = "https://github.com/tracerun/tracerun/releases/download/" + version;
       let fileName = "tracerun" + "_" + version + "_" + platform + "_" + arch + "." + ext;
 
@@ -49,7 +92,7 @@ exports.downloadTraceRun = function (resp) {
         if (err) {
           resp(err);
         } else {
-          decompress(fileName, err => {
+          decompress(fileName, programFolder, err => {
             resp(err);
           });
         }
@@ -57,6 +100,24 @@ exports.downloadTraceRun = function (resp) {
     }
   });
 };
+
+function getTraceRunFolder() {
+  let tracerunPath = path.format({
+    dir: os.homedir(),
+    base: ".tracerun"
+  });
+
+  if (!fs.existsSync(tracerunPath)) {
+    fs.mkdirSync(tracerunPath);
+  }
+  return tracerunPath;
+}
+
+function startDaemon(folder, program) {
+  spawn(program, ["--db", "db", "-o", "log", "--nostd", "start", "-d"], {
+    cwd: folder
+  });
+}
 
 function download(url, dest, cb) {
   let https = require('follow-redirects').https;
@@ -74,10 +135,11 @@ function download(url, dest, cb) {
   });
 };
 
-function decompress(file, callback) {
+function decompress(file, programFolder, callback) {
   const decomp = require('decompress');
 
-  decomp(file, "./").then(files => {
+  decomp(file, programFolder).then(files => {
+    fs.unlinkSync(file);
     callback();
   }).catch(function (err) {
     callback(err);

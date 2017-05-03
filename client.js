@@ -1,12 +1,7 @@
 const net = require("net");
 const service = require('./proto/service_pb');
 
-
-// const root = new protobuf.Root();
-// Root.load('');
-// const Meta = Root.lookupType("service.Meta");
-
-// const Meta = require("./proto/service").Meta;
+const headerBytes = 3;
 
 let errFunc;
 
@@ -64,10 +59,10 @@ exports.Client = class {
 
     let length = Buffer.byteLength(target);
     let buf = getHeaderBuf(length, 10);
-    let total = Buffer.alloc(length + 3);
+    let total = Buffer.alloc(length + headerBytes);
 
     buf.copy(total);
-    total.write(target, 3);
+    total.write(target, headerBytes);
     this.sendConn.write(total);
   }
 };
@@ -81,7 +76,7 @@ function getExchConn(port, addr) {
 }
 
 function getHeaderBuf(count, route) {
-  let buf = new Buffer(3);
+  let buf = new Buffer(headerBytes);
   buf.writeUInt16LE(count, 0);
   buf.writeUInt8(route, 2);
   return buf;
@@ -90,7 +85,7 @@ function getHeaderBuf(count, route) {
 function readOne(expectRoute, buf) {
   let count = buf.readInt16LE(0);
   let route = buf.readUInt8(2);
-  let realBuf = buf.slice(3, 3 + count);
+  let realBuf = buf.slice(headerBytes, headerBytes + count);
 
   let err;
   if (route === 255) {
