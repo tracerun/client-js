@@ -4,7 +4,6 @@ const service = require('./proto/service_pb');
 const headerBytes = 3;
 
 let errFunc;
-
 exports.setErrFunc = function (func) {
   errFunc = func;
 };
@@ -37,9 +36,7 @@ exports.Client = class {
     this.sendConn.write(buf);
   }
 
-  getMeta(metaCallback) {
-    let route = 2; // meta route
-
+  getInfo(route, obj, callback) {
     let conn = getExchConn(this.port, this.address);
     let buf = getHeaderBuf(0, route);
     conn.on("data", data => {
@@ -47,23 +44,58 @@ exports.Client = class {
       if (msg.error !== undefined) {
         errFunc(msg.error);
       } else {
-        let meta = service.Meta.deserializeBinary(new Uint8Array(msg.buf));
-        metaCallback(meta.toObject());
+        let result = obj.deserializeBinary(new Uint8Array(msg.buf));
+        callback(result.toObject());
       }
     });
     conn.write(buf);
   }
 
+  getMeta(callback) {
+    this.getInfo(2, service.Meta, callback);
+  }
+
   addAction(target) {
     this.checkSendConn();
 
-    let length = Buffer.byteLength(target);
-    let buf = getHeaderBuf(length, 10);
-    let total = Buffer.alloc(length + headerBytes);
+    let targetBuf = new Buffer(target);
+    let headerBuf = getHeaderBuf(targetBuf.length, 10);
 
-    buf.copy(total);
-    total.write(target, headerBytes);
-    this.sendConn.write(total);
+    this.sendConn.write(headerBuf);
+    this.sendConn.write(targetBuf);
+  }
+
+  getActions(callback) {
+    this.getInfo(11, service.AllActions, callback);
+  }
+
+  getTargets(callback) {
+    this.getInfo(20, service.Targets, callback);
+  }
+
+  getSlots(target, from, to, callback) {
+    let route = 21;
+
+    let range = new service.SlotRange();
+    range.setTarget(target);
+    range.setStart(from);
+    range.setEnd(to);
+
+    let bytes = new Buffer(range.serializeBinary());
+    let headerBuf = getHeaderBuf(bytes.length, 21);
+
+    let conn = getExchConn(this.port, this.address);
+    conn.on("data", data => {
+      let msg = readOne(route, data);
+      if (msg.error !== undefined) {
+        errFunc(msg.error);
+      } else {
+        let result = service.Slots.deserializeBinary(new Uint8Array(msg.buf));
+        callback(result.toObject());
+      }
+    });
+    conn.write(headerBuf);
+    conn.write(bytes);
   }
 };
 
