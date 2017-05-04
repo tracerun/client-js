@@ -2,9 +2,10 @@ const client = require('./client');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const spawn = require('child_process').spawn;
+const spawn = require('child_process')
+  .spawn;
 
-exports.start = function (resp) {
+exports.start = function(resp) {
   client.setErrFunc(() => {
     // port not open
     let program = "tracerun";
@@ -50,7 +51,7 @@ function getLatestVersion(resp) {
       "Accept": "application/vnd.github.v3+json",
       "User-Agent": "tracerun"
     }
-  }, function (error, response, body) {
+  }, function(error, response, body) {
     if (!error && response.statusCode == 200) {
       var info = JSON.parse(body);
       resp(null, info["tag_name"]);
@@ -116,34 +117,38 @@ function getTraceRunFolder() {
 }
 
 function startDaemon(folder, program) {
-  spawn(program, ["--db", "db", "-o", "log", "--nostd", "start", "-d"], {
+  spawn(path.join(folder, program), ["--db", "db", "-o", "log", "--nostd", "start", "-d"], {
     cwd: folder
   });
 }
 
 function download(url, dest, cb) {
-  let https = require('follow-redirects').https;
+  let https = require('follow-redirects')
+    .https;
   let file = fs.createWriteStream(dest);
 
-  https.get(url, function (response) {
-    response.pipe(file);
-    file.on('finish', function () {
-      file.close();  // close() is async, call cb after close completes.
-      cb();
+  https.get(url, function(response) {
+      response.pipe(file);
+      file.on('finish', function() {
+        file.close(); // close() is async, call cb after close completes.
+        cb();
+      });
+    })
+    .on('error', function(err) { // Handle errors
+      fs.unlink(dest); // Delete the file async. (But we don't check the result)
+      cb(err);
     });
-  }).on('error', function (err) { // Handle errors
-    fs.unlink(dest); // Delete the file async. (But we don't check the result)
-    cb(err);
-  });
 };
 
 function decompress(file, programFolder, callback) {
   const decomp = require('decompress');
 
-  decomp(file, programFolder).then(() => {
-    fs.unlinkSync(file);
-    callback();
-  }).catch(function (err) {
-    callback(err);
-  });
+  decomp(file, programFolder)
+    .then(() => {
+      fs.unlinkSync(file);
+      callback();
+    })
+    .catch(function(err) {
+      callback(err);
+    });
 }
