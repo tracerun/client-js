@@ -20,23 +20,25 @@ exports.start = function (resp) {
 
     if (fs.existsSync(programPath)) {
       startDaemon(traceRunFolder, program);
-      resp(true);
+      resp();
     } else {
       // download the program
       downloadTraceRun(traceRunFolder, err => {
-        if (err) {
-          console.error(err);
-        } else {
+        if (!err) {
           startDaemon(traceRunFolder, program);
-          resp(true);
         }
+        resp(err);
       });
     }
   });
 
   let metaClient = new client.Client();
-  metaClient.getMeta(() => {
-    resp(true);
+  metaClient.getMeta(meta => {
+    if (meta.version > 0) {
+      resp();
+    } else {
+      resp(new Error("meta version wrong"));
+    }
   });
 };
 
@@ -76,7 +78,7 @@ function downloadTraceRun(programFolder, resp) {
   } else if (platform === "darwin") {
     ext = "zip";
   } else if (platform !== "freebsd" || platform !== "linux") {
-    resp(new Error("platform not support"), false);
+    resp(new Error("platform not support"));
     return;
   }
 
@@ -121,24 +123,24 @@ function startDaemon(folder, program) {
 
 function download(url, dest, cb) {
   let https = require('follow-redirects').https;
-  let fs = require('fs');
-
   let file = fs.createWriteStream(dest);
-  let request = https.get(url, function (response) {
+
+  https.get(url, function (response) {
     response.pipe(file);
     file.on('finish', function () {
-      file.close(cb);  // close() is async, call cb after close completes.
+      file.close();  // close() is async, call cb after close completes.
+      cb();
     });
   }).on('error', function (err) { // Handle errors
     fs.unlink(dest); // Delete the file async. (But we don't check the result)
-    if (cb) cb(err.message);
+    cb(err);
   });
 };
 
 function decompress(file, programFolder, callback) {
   const decomp = require('decompress');
 
-  decomp(file, programFolder).then(files => {
+  decomp(file, programFolder).then(() => {
     fs.unlinkSync(file);
     callback();
   }).catch(function (err) {
