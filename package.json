@@ -1,6 +1,6 @@
 {
   "name": "tracerun-cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "TraceRun javascript client.",
   "main": "index.js",
   "scripts": {
